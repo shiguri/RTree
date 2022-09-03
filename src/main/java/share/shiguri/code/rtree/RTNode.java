@@ -32,6 +32,12 @@ public abstract class RTNode {
         return parent;
     }
 
+    public int getUsedCount(){return usedCount;}
+
+    public MaximumBoundingBox getDataOfIndex(int index) {
+        return (MaximumBoundingBox) data[index].clone();
+    }
+
     /**
      * 向当前节点的条目中添加一个MaximumBoundingBox
      * @param box 待添加的MaximumBoundingBox
@@ -45,11 +51,63 @@ public abstract class RTNode {
         usedCount += 1;
     }
 
-    protected void deleteMaximumBoundingBox(MaximumBoundingBox){}
+    /**
+     * <p>
+     *     根据MBB在当前节点中的条目索引，删除该MBB
+     * @param index 待删除的条目在当前节点中的索引。
+     */
+    protected void deleteMaximumBoundingBox(int index){
+        if (null == this.data[index + 1]) { // 如果该节点后面还有条目
+            //把 index + 1 后面的节点整体往前移动1位。
+            System.arraycopy(this.data, index + 1, this.data, index, this.usedCount - index - 1);
+            this.data[this.usedCount -1] = null;
+        } else {
+            this.data[index] = null;
+        }
+        this.usedCount -= 1;
+    }
 
-    protected void condenseTree(List<RTNode>){}
+    /**
+     * 压缩算法 叶节点L中刚刚删除了一个条目，如果这个结点的条目数太少下溢，则移除该结点，同时将该结点中剩余的条目重定位到其他结点中。
+     * 如果有必要，要逐级向上进行这种移除，调整向上传递的路径上的所有外包矩形，使其尽可能小，直到根节点。
+     *
+     * @param reinsert 存储移除结点中剩余条目
+     */
+    protected void condenseTree(List<RTNode> reinsert){
+        if (isRoot()) {
+            // 待删除节点是根节点，且其子条目只有一条，则令这条子条目为新的根节点。
+            if (isLeaf() && 1 == this.usedCount) {
+                RTIndexNode root = (RTIndexNode) this;
+                RTLeafNode child = (RTLeafNode) root.getChild(0);
 
+                root.children.remove(this);
+                child.parent = null;
+                rTree.setRoot(child);
+            }
+        } else {
+            RTNode parent = this.getParent();
+            // ? 是否可以为1
+            long minCapacity = Math.round(rTree.getNodeCapacity() * rTree.getFillFactor());
+            if (this.usedCount < minCapacity) {
+                // deleteIndex ？
+                parent.deleteMaximumBoundingBox(parent.deleteIndex);
+                ((RTIndexNode) parent).children.remove(this);
+                this.parent = null;
+                reinsert.add(this);
+            } else {
+                // 直接更新MBB
+                parent.data[parent.deleteIndex] = parent.getMaximumBoundingBox();
+            }
+            //将变化向上传播
+            parent.condenseTree(reinsert);
+        }
+    }
 
+    /**
+     * 当前节点的存放条目已到达上限，再往其中加入节点时才调用。用于将原节点的所有MBB(包括试图加入的这个MBB)分裂成两组。
+     * @param box MaximumBoundingBoxm, 当前节点空间已满后，试图向加入至其中的MBB。
+     * @return int[][] 该二维数组存放了节点分裂后，每个组的MBB在原节点中的索引。
+     */
     protected int[][] quadraticSplit(MaximumBoundingBox box) {
         if (null == box) {
             throw new IllegalArgumentException("MaximumBoundingBox is null when quadraticSplit");
@@ -112,7 +170,7 @@ public abstract class RTNode {
                     seedOneBox = seedOneBox.unionAsMaximumBoundingBox(this.data[groupOne[index]]);
                 }
                 // groupTwo 当前的外包矩形
-                MaximumBoundingBox seedTwoBox = this.data[groupTwo[0]].clone();
+                MaximumBoundingBox seedTwoBox = (MaximumBoundingBox) this.data[groupTwo[0]].clone();
                 for (int index = 0; index < indexTwo; index++) {
                     seedTwoBox = seedTwoBox.unionAsMaximumBoundingBox(this.data[groupTwo[index]]);
                 }
@@ -210,4 +268,78 @@ public abstract class RTNode {
         MaximumBoundingBox union = origin.unionAsMaximumBoundingBox(added);
         return union.getArea() - origin.getArea();
     }
+
+    /**
+     * 返回一个能包含当前节点所有条目的MBB
+     * @return MaximumBoundingBox
+     */
+    public MaximumBoundingBox getMaximumBoundingBox() {
+        if (this.usedCount > 0) {
+            MaximumBoundingBox[] dataCopy = Arrays.copyOf(this.data, this.usedCount);
+            MaximumBoundingBox box = dataCopy[0];
+            for (int index = 1; index < dataCopy.length; index++) {
+                box = box.unionAsMaximumBoundingBox(dataCopy[index]);
+            }
+            return box;
+        } else {
+            return MaximumBoundingBox.create(Point.create(new double[]{0, 0}), Point.create(new double[] {0, 0}));
+        }
+    }
+
+    /**
+     * 当前节点是否是空节点
+     * @return boolean
+     */
+    public boolean isEmpty() {
+        return 0 == this.usedCount;
+    }
+
+    /**
+     * 是否是根节点
+     * @return boolean
+     */
+    public boolean isRoot() {
+        return null == this.parent;
+    }
+
+    /**
+     * 是否是非叶节点
+     * @return boolean
+     */
+    public boolean isIndex() {
+        return !isLeaf();
+    }
+
+    /**
+     * 是否是叶子节点
+     * @return boolean
+     */
+    public boolean isLeaf() {
+        return 0 == this.level;
+    }
+
+    /**
+     * <b>步骤CL1：</b>初始化――记R树的根节点为N。<br>
+     * <b>步骤CL2：</b>检查叶节点――如果N是个叶节点，返回N<br>
+     * <b>步骤CL3：</b>选择子树――如果N不是叶节点，则从N中所有的条目中选出一个最佳的条目F，
+     * 选择的标准是：如果E加入F后，F的外廓矩形FI扩张最小，则F就是最佳的条目。如果有两个
+     * 条目在加入E后外廓矩形的扩张程度相等，则在这两者中选择外廓矩形较小的那个。<br>
+     * <b>步骤CL4：</b>向下寻找直至达到叶节点――记Fp指向的孩子节点为N，然后返回步骤CL2循环运算， 直至查找到叶节点。
+     * <p>
+     *
+     * @param maximumBoundingBox
+     * @return RTLeafNode
+     */
+    public abstract RTLeafNode chooseLeaf(MaximumBoundingBox maximumBoundingBox);
+
+    /**
+     * R树的根节点为T，查找包含rectangle的叶子结点
+     * <p>
+     * 1、如果T不是叶子结点，则逐个查找T中的每个条目是否包围rectangle，若包围则递归调用findLeaf()<br>
+     * 2、如果T是一个叶子结点，则逐个检查T中的每个条目能否匹配rectangle<br>
+     *
+     * @param maximumBoundingBox mbb
+     * @return 返回包含mbb的叶节点
+     */
+    protected abstract RTLeafNode findLeaf(MaximumBoundingBox maximumBoundingBox);
 }

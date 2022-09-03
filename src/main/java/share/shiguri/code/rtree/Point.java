@@ -90,7 +90,7 @@ public class Point {
     }
 
     @Override
-    protected Point clone() throws CloneNotSupportedException {
+    protected Point clone(){
         return Point.create(this.data);
     }
 }

@@ -10,34 +10,19 @@ public class MaximumBoundingBox {
     }
 
     public static MaximumBoundingBox create(Point leftBottom, Point rightTop) {
-        try {
-            if (leftBottom != null && rightTop != null && leftBottom.dimension() == rightTop.dimension()) {
-                return new MaximumBoundingBox(leftBottom.clone(), rightTop.clone());
-            } else {
-                throw new IllegalArgumentException("leftBottom or rightTop is invalid or their dimension don't equal");
-            }
-        }catch (CloneNotSupportedException e) {
-            // clone is always supported
-            return null;
+        if (leftBottom != null && rightTop != null && leftBottom.dimension() == rightTop.dimension()) {
+            return new MaximumBoundingBox(leftBottom.clone(), rightTop.clone());
+        } else {
+            throw new IllegalArgumentException("leftBottom or rightTop is invalid or their dimension don't equal");
         }
     }
 
     public Point getLeftBottomPoint() {
-        try {
-            return leftBottom.clone();
-        }catch (CloneNotSupportedException e) {
-            // clone is always supported
-            return null;
-        }
+        return leftBottom.clone();
     }
 
     public Point getRightTopPoint() {
-        try {
-            return rightTop.clone();
-        }catch (CloneNotSupportedException e) {
-            // clone is always supported
-            return null;
-        }
+        return rightTop.clone();
     }
 
     /**
@@ -197,7 +182,7 @@ public class MaximumBoundingBox {
     }
 
     @Override
-    protected Object clone() throws CloneNotSupportedException {
+    protected Object clone(){
         Point leftBottomClone = this.leftBottom.clone();
         Point rightBottomClone = this.rightTop.clone();
         return MaximumBoundingBox.create(leftBottomClone, rightBottomClone);
