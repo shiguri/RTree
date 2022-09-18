@@ -51,7 +51,7 @@ public class MaximumBoundingBox {
 
         for (int index = 0; index < dimension(); index++) {
             dataOfLeftBottom[index] =
-                    Math.max(this.leftBottom.getValueOfIndex(index), other.leftBottom.getValueOfIndex(index));
+                    Math.min(this.leftBottom.getValueOfIndex(index), other.leftBottom.getValueOfIndex(index));
             dataOfRightTop[index] =
                     Math.max(this.rightTop.getValueOfIndex(index), other.rightTop.getValueOfIndex(index));
         }

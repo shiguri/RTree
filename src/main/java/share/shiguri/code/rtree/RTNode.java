@@ -57,7 +57,7 @@ public abstract class RTNode {
      * @param index 待删除的条目在当前节点中的索引。
      */
     protected void deleteMaximumBoundingBox(int index){
-        if (null == this.data[index + 1]) { // 如果该节点后面还有条目
+        if (null != this.data[index + 1]) { // 如果该节点后面还有条目
             //把 index + 1 后面的节点整体往前移动1位。
             System.arraycopy(this.data, index + 1, this.data, index, this.usedCount - index - 1);
             this.data[this.usedCount -1] = null;
@@ -96,7 +96,7 @@ public abstract class RTNode {
                 reinsert.add(this);
             } else {
                 // 直接更新MBB
-                parent.data[parent.deleteIndex] = parent.getMaximumBoundingBox();
+                parent.data[parent.deleteIndex] = this.getMaximumBoundingBox();
             }
             //将变化向上传播
             parent.condenseTree(reinsert);
